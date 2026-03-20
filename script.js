@@ -1,4 +1,3 @@
-// --- حماية النظام ---
 function checkPassword() {
     const pass = document.getElementById('passwordInput').value;
     if (pass === '1001') {
@@ -9,7 +8,6 @@ function checkPassword() {
     }
 }
 
-// --- هيكل البيانات ---
 let db = {
     theme: 'light',
     phase1: { price: 0, date: '', subscribers: [], expenses: [] },
@@ -19,7 +17,6 @@ let db = {
 let currentPhase = null;
 let currentSubscriberId = null;
 
-// --- التهيئة الأساسية ---
 function initApp() {
     const savedDb = localStorage.getItem('generatorDb');
     if (savedDb) db = JSON.parse(savedDb);
@@ -28,31 +25,28 @@ function initApp() {
 
 function saveData() {
     localStorage.setItem('generatorDb', JSON.stringify(db));
-    if(currentPhase) updateDashboard();
 }
 
-// --- الوضع الليلي ---
 function toggleTheme() {
     db.theme = db.theme === 'light' ? 'dark' : 'light';
     applyTheme(db.theme);
     saveData();
 }
+
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
 }
 
-// --- التنقل بين الواجهات ---
 function openPhase(phaseNum) {
     currentPhase = `phase${phaseNum}`;
     document.getElementById('mainInterface').classList.add('hidden');
     document.getElementById('phaseInterface').classList.remove('hidden');
     document.getElementById('currentPhaseTitle').innerText = `الفيز ${phaseNum}`;
     
-    // تحميل بيانات التسعير
     document.getElementById('amperePrice').value = db[currentPhase].price || '';
     document.getElementById('pricingDate').value = db[currentPhase].date || '';
     
-    switchTab('dashboard');
+    switchTab('pricing');
 }
 
 function backToMain() {
@@ -71,119 +65,88 @@ function switchTab(tabId) {
     if(tabId === 'subscribers') renderSubscribers();
     if(tabId === 'defaulters') renderDefaulters();
     if(tabId === 'expenses') renderExpenses();
-    if(tabId === 'dashboard') updateDashboard();
 }
 
-// --- التسعير ---
 function savePricing() {
     const price = parseFloat(document.getElementById('amperePrice').value);
     const date = document.getElementById('pricingDate').value;
     
-    if (!price || !date) return alert("يرجى إدخال السعر والتاريخ");
+    if (!price || !date) return;
     
     db[currentPhase].price = price;
     db[currentPhase].date = date;
     
-    // تحديث المطلوب من كل مشترك
     db[currentPhase].subscribers.forEach(sub => {
-        sub.totalRequired = sub.amperes * price;
+        sub.totalRequired += sub.amperes * price;
     });
     
     saveData();
-    alert("تم حفظ التسعيرة وتحديث ديون المشتركين.");
 }
 
-// --- المشتركين ---
+function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
 function saveSubscriber() {
     const name = document.getElementById('subName').value;
-    const phone = document.getElementById('subPhone').value;
     const amperes = parseFloat(document.getElementById('subAmperes').value);
+    const date = document.getElementById('subDate').value;
+    const phone = document.getElementById('subPhone').value;
     const price = db[currentPhase].price;
 
-    if (!name || !phone || !amperes) return alert("أكمل جميع الحقول");
-    if (price === 0) return alert("يرجى تسعير الأمبير أولاً في تبويبة التسعير");
+    if (!name || !amperes || !date || !phone) return;
 
     const newSub = {
         id: Date.now().toString(),
         name,
-        phone,
         amperes,
+        date,
+        phone,
         totalRequired: amperes * price,
-        paidAmount: 0,
-        history: []
+        paidAmount: 0
     };
 
     db[currentPhase].subscribers.push(newSub);
     saveData();
     closeModal('addSubscriberModal');
     
-    // تفريغ الحقول
     document.getElementById('subName').value = '';
-    document.getElementById('subPhone').value = '';
     document.getElementById('subAmperes').value = '';
+    document.getElementById('subDate').value = '';
+    document.getElementById('subPhone').value = '';
     
     renderSubscribers();
 }
 
-function renderSubscribers(filter = "") {
+function renderSubscribers() {
     const list = document.getElementById('subscribersList');
     list.innerHTML = "";
-    
-    let subs = db[currentPhase].subscribers;
-    if (filter) {
-        subs = subs.filter(s => s.name.includes(filter) || s.phone.includes(filter));
-    }
-
-    subs.forEach(sub => {
-        const remaining = sub.totalRequired - sub.paidAmount;
+    db[currentPhase].subscribers.forEach(sub => {
         const div = document.createElement('div');
         div.className = 'list-item';
         div.onclick = () => openSubscriberDetails(sub.id);
-        div.innerHTML = `
-            <div>
-                <strong>${sub.name}</strong><br>
-                <small>${sub.amperes} أمبير</small>
-            </div>
-            <div style="text-align: left;">
-                <span class="${remaining > 0 ? 'danger-text' : 'success-text'}">${remaining} دينار</span>
-            </div>
-        `;
+        div.innerHTML = `<div><strong>${sub.name}</strong></div>`;
         list.appendChild(div);
     });
 }
 
-function searchSubscribers() {
-    const val = document.getElementById('searchInput').value;
-    renderSubscribers(val);
-}
-
-// --- تفاصيل المشترك والتسديد ---
 function openSubscriberDetails(id) {
     currentSubscriberId = id;
     const sub = db[currentPhase].subscribers.find(s => s.id === id);
-    const remaining = sub.totalRequired - sub.paidAmount;
+    const price = db[currentPhase].price;
+    const remainingTotal = sub.totalRequired - sub.paidAmount;
+    const currentMonthPrice = sub.amperes * price;
 
     document.getElementById('detName').innerText = sub.name;
+    document.getElementById('detTotalRemaining').innerText = remainingTotal;
     document.getElementById('detAmperes').innerText = sub.amperes;
-    document.getElementById('detTotal').innerText = sub.totalRequired;
-    document.getElementById('detRemaining').innerText = remaining;
+    document.getElementById('detMonthPrice').innerText = currentMonthPrice;
     
-    // زر الواتساب للمتبقي
-    const waBtn = document.getElementById('btnWaDebt');
-    if (remaining > 0) {
-        waBtn.style.display = 'block';
-        waBtn.onclick = () => sendWhatsApp(sub.phone, `مرحباً ${sub.name}، نود تذكيرك بأن المبلغ المتبقي لاشتراك المولدة هو ${remaining} دينار.`);
-    } else {
-        waBtn.style.display = 'none';
-    }
-
-    const historyList = document.getElementById('detHistory');
-    historyList.innerHTML = "";
-    sub.history.forEach(h => {
-        historyList.innerHTML += `<li>${h.date} - سدد: ${h.amount} دينار</li>`;
-    });
-
+    document.getElementById('paymentFormContainer').classList.add('hidden');
     openModal('subscriberDetailsModal');
+}
+
+function togglePaymentForm() {
+    document.getElementById('paymentFormContainer').classList.toggle('hidden');
 }
 
 function makePayment() {
@@ -193,91 +156,68 @@ function makePayment() {
     const sub = db[currentPhase].subscribers.find(s => s.id === currentSubscriberId);
     sub.paidAmount += amount;
     
-    // سجل الدفع
-    const dateStr = new Date().toLocaleString('ar-EG');
-    sub.history.push({ date: dateStr, amount: amount });
-
     saveData();
     document.getElementById('payAmount').value = '';
-    openSubscriberDetails(currentSubscriberId); // إعادة تحديث النافذة
-    renderSubscribers(); // تحديث القائمة في الخلفية
+    document.getElementById('paymentFormContainer').classList.add('hidden');
+    openSubscriberDetails(currentSubscriberId);
 }
 
-// --- المتأخرين ---
 function renderDefaulters() {
     const list = document.getElementById('defaultersList');
     list.innerHTML = "";
     
-    const defaulters = db[currentPhase].subscribers.filter(s => (s.totalRequired - s.paidAmount) > 0);
+    const today = new Date();
     
-    if (defaulters.length === 0) {
-        list.innerHTML = "<p style='text-align:center;'>لا يوجد متأخرين.</p>";
-        return;
-    }
+    const defaulters = db[currentPhase].subscribers.filter(sub => {
+        const remaining = sub.totalRequired - sub.paidAmount;
+        if (remaining <= 0) return false;
+        
+        if (sub.date) {
+            const subDate = new Date(sub.date);
+            const diffTime = Math.abs(today - subDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            if (diffDays >= 30) return true;
+        }
+        return false;
+    });
 
     defaulters.forEach(sub => {
-        const remaining = sub.totalRequired - sub.paidAmount;
         const div = document.createElement('div');
         div.className = 'list-item';
-        div.innerHTML = `
-            <div><strong>${sub.name}</strong><br><small class="danger-text">مطلوب: ${remaining}</small></div>
-            <button class="btn-whatsapp" style="width:auto;" onclick="sendWhatsApp('${sub.phone}', 'تذكير: يرجى تسديد مبلغ الاشتراك البالغ ${remaining} دينار لمولدة الجمعيات.')">
-                <i class="fab fa-whatsapp"></i> رسالة
-            </button>
-        `;
+        div.innerHTML = `<div><strong>${sub.name}</strong></div>`;
         list.appendChild(div);
     });
 }
 
-// --- المصروفات ---
-function addExpense() {
-    const name = document.getElementById('expenseName').value;
-    const amount = parseFloat(document.getElementById('expenseAmount').value);
-    if (!name || !amount) return;
+function toggleExpenseForm() {
+    document.getElementById('expenseFormContainer').classList.toggle('hidden');
+}
 
-    db[currentPhase].expenses.push({ name, amount, date: new Date().toLocaleDateString('ar-EG') });
+function addExpense() {
+    const amount = parseFloat(document.getElementById('expenseAmount').value);
+    const note = document.getElementById('expenseNote').value;
+    
+    if (!amount || !note) return;
+
+    db[currentPhase].expenses.push({ amount, note });
     saveData();
-    document.getElementById('expenseName').value = '';
+    
     document.getElementById('expenseAmount').value = '';
+    document.getElementById('expenseNote').value = '';
+    document.getElementById('expenseFormContainer').classList.add('hidden');
+    
     renderExpenses();
 }
 
 function renderExpenses() {
     const list = document.getElementById('expensesList');
     list.innerHTML = "";
+    
+    let total = 0;
     db[currentPhase].expenses.forEach(exp => {
-        list.innerHTML += `<div class="list-item"><span>${exp.name} - <small>${exp.date}</small></span> <span class="danger-text">${exp.amount} دينار</span></div>`;
+        total += exp.amount;
+        list.innerHTML += `<div class="list-item"><span>${exp.note}</span> <span>${exp.amount}</span></div>`;
     });
-}
-
-// --- الإحصائيات (Dashboard) ---
-function updateDashboard() {
-    if(!currentPhase) return;
-    const subs = db[currentPhase].subscribers;
-    const exps = db[currentPhase].expenses;
     
-    const totalSubs = subs.length;
-    const totalRequired = subs.reduce((sum, s) => sum + s.totalRequired, 0);
-    const totalPaid = subs.reduce((sum, s) => sum + s.paidAmount, 0);
-    const totalExpenses = exps.reduce((sum, e) => sum + e.amount, 0);
-    const totalDebt = totalRequired - totalPaid;
-    
-    const netIncome = totalPaid - totalExpenses; // الصافي الفعلي بعد المصروفات
-
-    document.getElementById('statTotalSubs').innerText = totalSubs;
-    document.getElementById('statTotalMoney').innerText = totalRequired + ' دينار';
-    document.getElementById('statTotalDebt').innerText = totalDebt + ' دينار';
-}
-
-// --- مساعدات عامة ---
-function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
-function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
-function sendWhatsApp(phone, message) {
-    // تعديل الرقم ليتناسب مع الواتساب (إزالة الصفر الأول وإضافة مفتاح العراق كمثال)
-    let formattedPhone = phone;
-    if(phone.startsWith('0')) {
-        formattedPhone = '964' + phone.substring(1);
-    }
-    const url = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
+    document.getElementById('totalExpensesDisplay').innerText = total;
 }

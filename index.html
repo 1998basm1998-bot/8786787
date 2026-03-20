@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مولدة الجمعيات</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- شاشة تسجيل الدخول -->
+    <div id="loginOverlay" class="login-overlay">
+        <div class="login-box">
+            <h2>تسجيل الدخول</h2>
+            <input type="password" id="passwordInput" placeholder="أدخل كلمة المرور">
+            <button onclick="checkPassword()">دخول</button>
+            <p id="loginError" class="error-msg"></p>
+        </div>
+    </div>
+
+    <!-- رأس الصفحة -->
+    <header>
+        <h1><i class="fas fa-bolt"></i> مولدة الجمعيات</h1>
+        <button id="themeToggle" onclick="toggleTheme()"><i class="fas fa-moon"></i></button>
+    </header>
+
+    <!-- الواجهة الرئيسية (الفيزات) -->
+    <main id="mainInterface" class="container">
+        <h2 class="section-title">اختر الفيز</h2>
+        <div class="phases-grid">
+            <button class="phase-btn" onclick="openPhase(1)">الفيز الأول</button>
+            <button class="phase-btn" onclick="openPhase(2)">الفيز الثاني</button>
+            <button class="phase-btn" onclick="openPhase(3)">الفيز الثالث</button>
+        </div>
+    </main>
+
+    <!-- واجهة الفيز المحددة -->
+    <div id="phaseInterface" class="container hidden">
+        <div class="phase-header">
+            <button class="back-btn" onclick="backToMain()"><i class="fas fa-arrow-right"></i> رجوع</button>
+            <h2 id="currentPhaseTitle">الفيز</h2>
+        </div>
+
+        <!-- التبويبات -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('dashboard')">الإحصائيات</button>
+            <button class="tab-btn" onclick="switchTab('pricing')">تسعير الأمبير</button>
+            <button class="tab-btn" onclick="switchTab('subscribers')">المشتركين</button>
+            <button class="tab-btn" onclick="switchTab('defaulters')">المتأخرين</button>
+            <button class="tab-btn" onclick="switchTab('expenses')">المصروفات</button>
+        </div>
+
+        <!-- محتوى التبويبات -->
+        <div class="tab-content">
+            
+            <!-- تبويبة الإحصائيات (ميزة إضافية) -->
+            <div id="dashboard" class="tab-pane active">
+                <div class="stats-grid">
+                    <div class="stat-card"><h3>إجمالي المشتركين</h3><p id="statTotalSubs">0</p></div>
+                    <div class="stat-card"><h3>المبلغ الكلي</h3><p id="statTotalMoney">0</p></div>
+                    <div class="stat-card"><h3>الديون المتبقية</h3><p id="statTotalDebt">0</p></div>
+                </div>
+            </div>
+
+            <!-- تبويبة التسعير -->
+            <div id="pricing" class="tab-pane hidden">
+                <div class="card form-group">
+                    <label>سعر الأمبير (دينار):</label>
+                    <input type="number" id="amperePrice">
+                    <label>التاريخ:</label>
+                    <input type="month" id="pricingDate">
+                    <button class="btn-primary" onclick="savePricing()"><i class="fas fa-save"></i> حفظ التسعيرة</button>
+                </div>
+            </div>
+
+            <!-- تبويبة المشتركين -->
+            <div id="subscribers" class="tab-pane hidden">
+                <div class="action-bar">
+                    <button class="btn-success" onclick="openModal('addSubscriberModal')"><i class="fas fa-plus"></i> إضافة مشترك</button>
+                    <input type="text" id="searchInput" placeholder="بحث بالاسم أو الرقم..." onkeyup="searchSubscribers()"> <!-- ميزة إضافية -->
+                </div>
+                <div id="subscribersList" class="list-container"></div>
+            </div>
+
+            <!-- تبويبة المتأخرين -->
+            <div id="defaulters" class="tab-pane hidden">
+                <div id="defaultersList" class="list-container"></div>
+            </div>
+
+            <!-- تبويبة المصروفات (ميزة إضافية) -->
+            <div id="expenses" class="tab-pane hidden">
+                <div class="card form-group">
+                    <input type="text" id="expenseName" placeholder="نوع الصرف (مثال: كاز)">
+                    <input type="number" id="expenseAmount" placeholder="المبلغ">
+                    <button class="btn-primary" onclick="addExpense()">إضافة صرفيات</button>
+                </div>
+                <div id="expensesList" class="list-container mt-2"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- النوافذ المنبثقة (Modals) -->
+    
+    <!-- نافذة إضافة مشترك -->
+    <div id="addSubscriberModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('addSubscriberModal')">&times;</span>
+            <h3>إضافة مشترك جديد</h3>
+            <input type="text" id="subName" placeholder="اسم المشترك">
+            <input type="text" id="subPhone" placeholder="رقم الهاتف">
+            <input type="number" id="subAmperes" placeholder="عدد الأمبيرات">
+            <button class="btn-success mt-2" onclick="saveSubscriber()">حفظ</button>
+        </div>
+    </div>
+
+    <!-- نافذة تفاصيل المشترك والتسديد -->
+    <div id="subscriberDetailsModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('subscriberDetailsModal')">&times;</span>
+            <h3 id="detName"></h3>
+            <div class="details-grid">
+                <p>الأمبيرات: <span id="detAmperes"></span></p>
+                <p>المطلوب هذا الشهر: <span id="detTotal"></span></p>
+                <p>المتبقي (الديون): <span id="detRemaining" class="danger-text"></span></p>
+            </div>
+            <hr>
+            <h4>تسديد</h4>
+            <input type="number" id="payAmount" placeholder="المبلغ المدفوع">
+            <button class="btn-success mt-2" onclick="makePayment()">دفع</button>
+            <button class="btn-whatsapp mt-2" id="btnWaDebt"><i class="fab fa-whatsapp"></i> إرسال المتبقي واتساب</button>
+            <hr>
+            <h4>المعاملات السابقة</h4>
+            <ul id="detHistory" class="history-list"></ul>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
